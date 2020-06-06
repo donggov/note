@@ -252,4 +252,67 @@ curl -X POST "localhost:9200/_snapshot/bakcup/snap_01/_resotre"
 - 엘라스틱서치에서 지원하는 Rest Client
 - 엘라스틱서치에서 지원하는 Tranport Client (deperated)
 
-### ㅑㅜㅇ
+### Index wndy aoroqustn
+- routing : 색인에 사용할 샤드를 제어한다.
+- refresh : 도큐먼트를 색인한 후 새로고침을 강제한다. 이 옵션을 이용하면 도큐먼트를 색인한 후에 색인된 도큐먼트를 바로 검색할 수 있다.
+
+## Plugin
+다양한 플러그인을 제공한다.
+- https://www.elastic.co/guide/en/elasticsearch/plugins/7.7/index.html
+
+
+## 성능 최적화
+
+### Document 관점
+1) Index와 Shard 튜닝
+    - 데이터 노드 크기
+        - 샤드 크기를 설정하는 가장 쉬운 판단 기준
+        - 데이터 노드가 3개라면 기본 샤드 크기를 3개로 설정하고, 5개면 5개로 설정한다.
+        ````
+        index.number_of_shard: 3
+        ````
+    - CPU 코어 크기
+        - 기본적으로 엘라스틱서치는 병렬처리를 기반으로 동작한다. 따라서 CPU core 크기를 샤드 크기를 정할 때 판단 기준으로 사용할 수 있다.
+        - 샤드 크기를 늘리면 일반적인 색인과 검색에 대한 성능 향상 효과를 얻을 수 있지만 적절한 크기 이상으로 설정하면 오히려 성능 저하와 운영상의 어려움을 겪을 수 있으니 주의가 필요하다.
+        - azure에서는 (CPU core * node) +/- 1로 할때 가장 큰 퍼포먼스틀 낸다고 가이드한다.
+    - Document 크기
+        - 샤드 하나의 크기는 50GB 이하로 정의하는 것이 좋다. 이 이상도 가능하지만 문제 발생 시 복구와 검색 성능에 나쁜 영향을 미친다.
+        - 다음은 Document 하나의 크기를 기준으로 한 크기 정의이다.
+        ````
+        # Document 1개 크기 : 100KB
+        # Total document count : 10,000,000개
+        # Total indexing 크기 : 954GB
+        index.number_of_shard: 50
+        ````
+2) Modeling
+    - 주 설정 필드
+    - _all
+        - 모든 필드의 문자열에 대한 색인 작업 결과를 가지고 검색할 수 있게 지원하는 통합 필드
+        - 모든 필드에서 색인 작업을 수행하므로 CPU 사용량이 많고, 인덱스 크기도 늘어난다.
+        - Documnent에 대한 풀 텍스트 검색 기능을 사용하는 것이 아니라면 disabled로 설정하여 자원을 절약할 수 있따.
+    - _routing
+        - 필요에 따라 특정 샤드를 지정하여 사용한다.
+    - _id
+        - 이 필드를 기준으로 도큐먼트를 어느 샤드에 저장할지 결정된다.
+        - 특정 샤드로 데이터가 몰리지 않는지 확인해야 한다.
+        지정하지 않으면 해시 문자열로 가지게 되므로 랜덤하게 배치된다.
+
+### Operation 관점
+1. Bulk 요청 (refresh interval, request size, timeout 설정)
+    - 엘라스틱서치에서 색인 요청을 최적화하는 방법은 멀티스레딩을 이용하여 작은 규모의 색인 요청을 여러번 하는 것이다.
+        1) Disable replica & refresh_interval : 복제와 리프레시 설정 off
+        2) Document read : 색인할 문서를 읽는다.
+        3) Create bulk request : 벌크 색인 요청을 생성한다.
+        4) Bulk request : 벌크 색인 요청
+        5) Repeat "Step 2" : 이 과정을 "Documnet read"부터 반복
+        6) Optimize : 최적화 작업을 수행
+        7) Enable replica & refresh_internal : 복제와 리프레시 설정 복구(on)
+    - Bulk 요청 크기
+        - 1,005,000개 사이의 도큐먼트나 515MB 사이의 물리적인 크기로 정의하는 것이 좋다.
+    - Exception 모니터링
+        - EsRejectedExecutionException, TOO_MANY_REQEST, NoNodeAvailableException, Timeout exception 등
+        - 위 Exception은 요청이 과하거나 서버에서 처리할 수 있는 용량을 넘어선 것이다. scale out을 고려하거나 요청을 줄여야 한다.
+
+## Reference
+- [ElasticSearch Cookbook](http://www.yes24.com/Product/Goods/24301881)
+
