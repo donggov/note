@@ -252,7 +252,7 @@ curl -X POST "localhost:9200/_snapshot/bakcup/snap_01/_resotre"
 - 엘라스틱서치에서 지원하는 Rest Client
 - 엘라스틱서치에서 지원하는 Tranport Client (deperated)
 
-### Index wndy aoroqustn
+### Index 주요 매개변수
 - routing : 색인에 사용할 샤드를 제어한다.
 - refresh : 도큐먼트를 색인한 후 새로고침을 강제한다. 이 옵션을 이용하면 도큐먼트를 색인한 후에 색인된 도큐먼트를 바로 검색할 수 있다.
 
